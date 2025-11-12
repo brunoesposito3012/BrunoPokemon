@@ -1,0 +1,161 @@
+import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+void main() => runApp(MeuApp());
+
+class MeuApp extends StatefulWidget {
+  @override
+  MeuFormulario createState() {
+    return MeuFormulario();
+  }
+}
+
+class MeuFormulario extends State<MeuApp> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _scaffoldMsgKey = GlobalKey<ScaffoldMessengerState>();
+  List<String> pokemons = [];
+  bool carregando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    carregarPokemons();
+  }
+
+  Future<void> carregarPokemons() async {
+    setState(() {
+      carregando = true;
+    });
+
+    try {
+      final url = 'https://pokeapi.co/api/v2/pokemon/?offset=0&limit=100';
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final results = data['results'] as List;
+        
+        setState(() {
+          pokemons = results.map((pokemon) => pokemon['name'] as String).toList();
+          carregando = false;
+        });
+      } else {
+        setState(() {
+          carregando = false;
+        });
+        _scaffoldMsgKey.currentState!.showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar pokémons: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+          )
+        );
+      }
+    } catch (e) {
+      setState(() {
+        carregando = false;
+      });
+      _scaffoldMsgKey.currentState!.showSnackBar(
+        SnackBar(
+          content: Text('Erro ao conectar com a API: $e'),
+          backgroundColor: Colors.red,
+        )
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      scaffoldMessengerKey: _scaffoldMsgKey,
+      home: Scaffold(
+        key: _scaffoldKey,
+        appBar: AppBar(title: new Text("Lista de Pokémons")),
+        body: SingleChildScrollView(
+          child: Container(
+            margin: new EdgeInsets.all(15.0),
+            child: meuFormularioUI(_scaffoldKey, _scaffoldMsgKey, pokemons, carregando, carregarPokemons)
+          ),
+        )
+      )
+    );
+  }
+}
+
+Widget meuFormularioUI(var _scaffoldKey, var _scaffoldMsgKey, List<String> pokemons, bool carregando, Function carregarPokemons) {
+  return Column(children: [
+    // Ícone de pokémon
+    Icon(
+      Icons.catching_pokemon,
+      size: 80,
+      color: Colors.red,
+    ),
+    SizedBox(height: 20),
+    
+    Text(
+      "Lista de Pokémons",
+      style: TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    SizedBox(height: 30),
+    
+    if (carregando)
+      Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: CircularProgressIndicator(),
+        ),
+      )
+    else if (pokemons.isEmpty)
+      Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            "Nenhum pokémon encontrado",
+            style: TextStyle(fontSize: 16),
+          ),
+        ),
+      )
+    else
+      ListView.builder(
+        shrinkWrap: true,
+        physics: NeverScrollableScrollPhysics(),
+        itemCount: pokemons.length,
+        itemBuilder: (context, index) {
+          final pokemon = pokemons[index];
+          return Card(
+            margin: EdgeInsets.symmetric(vertical: 5),
+            child: ListTile(
+              leading: Icon(Icons.pets, color: Colors.blue),
+              title: Text(
+                pokemon.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    
+    SizedBox(height: 20),
+    
+    ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.red,
+        foregroundColor: Colors.white,
+        padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+      ),
+      child: Text(
+        "Recarregar",
+        style: TextStyle(fontSize: 18),
+      ),
+      onPressed: () {
+        carregarPokemons();
+      }
+    )
+  ]);
+}
